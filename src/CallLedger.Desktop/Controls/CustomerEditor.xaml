@@ -1,0 +1,99 @@
+<UserControl x:Class="CallLedger.Desktop.Controls.CustomerEditor"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:CallLedger.Desktop.Controls"
+             xmlns:vm="clr-namespace:CallLedger.Desktop.ViewModels">
+  <StackPanel>
+    <StackPanel.Style>
+      <Style TargetType="{x:Type StackPanel}">
+        <Setter Property="IsEnabled" Value="True" />
+        <Style.Triggers>
+          <DataTrigger Binding="{Binding IsNotBusy}" Value="False">
+            <Setter Property="IsEnabled" Value="False" />
+          </DataTrigger>
+          <DataTrigger Binding="{Binding IsEditorActive}" Value="False">
+            <Setter Property="IsEnabled" Value="False" />
+          </DataTrigger>
+        </Style.Triggers>
+      </Style>
+    </StackPanel.Style>
+    <Border Background="{StaticResource AccentSoftBrush}"
+            BorderBrush="{StaticResource AccentBrush}"
+            BorderThickness="{StaticResource RuleThickness}"
+            CornerRadius="{StaticResource RadiusSmall}"
+            Padding="{StaticResource CompactPadding}"
+            Margin="{StaticResource EditorBottomGap}"
+            Visibility="{Binding NextCallSuggested, Converter={StaticResource BoolToVisibility}}">
+      <TextBlock Text="Call recorded. Enter a new 'When to call' time if another call is needed, then save."
+                  Foreground="{StaticResource InkBrush}" />
+    </Border>
+
+    <controls:EditorField Label="Name"
+                          FieldKey="{x:Static vm:CustomerFields.Name}"
+                          Text="{Binding Draft.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          MaxLength="200"
+                          CopyCommand="{Binding CopyFieldCommand}"
+                          PasteCommand="{Binding PasteFieldCommand}"
+                          ToggleSensitiveCommand="{Binding ToggleSensitiveCommand}" />
+    <controls:EditorField Label="Phone"
+                          FieldKey="{x:Static vm:CustomerFields.Phone}"
+                          Text="{Binding Draft.Phone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          MaxLength="50"
+                          CopyCommand="{Binding CopyFieldCommand}"
+                          PasteCommand="{Binding PasteFieldCommand}"
+                          ToggleSensitiveCommand="{Binding ToggleSensitiveCommand}" />
+    <controls:EditorField Label="When to call"
+                          FieldKey="{x:Static vm:CustomerFields.FollowUpAt}"
+                          Text="{Binding Draft.FollowUpAt, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          CopyCommand="{Binding CopyFieldCommand}"
+                          PasteCommand="{Binding PasteFieldCommand}"
+                          ToggleSensitiveCommand="{Binding ToggleSensitiveCommand}" />
+    <controls:EditorField Label="Reason for call"
+                          FieldKey="{x:Static vm:CustomerFields.CallReason}"
+                          Text="{Binding Draft.CallReason, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          MaxLength="500"
+                          CopyCommand="{Binding CopyFieldCommand}"
+                          PasteCommand="{Binding PasteFieldCommand}"
+                          ToggleSensitiveCommand="{Binding ToggleSensitiveCommand}" />
+    <controls:EditorField Label="Notes"
+                          FieldKey="{x:Static vm:CustomerFields.Notes}"
+                          Text="{Binding Draft.Notes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          IsMultiline="True"
+                          MaxLength="10000"
+                           CopyCommand="{Binding CopyFieldCommand}"
+                           PasteCommand="{Binding PasteFieldCommand}"
+                           ToggleSensitiveCommand="{Binding ToggleSensitiveCommand}" />
+
+    <TextBlock Text="Customer identifiers"
+               FontSize="{StaticResource UiTextSize}"
+               FontWeight="SemiBold"
+               Foreground="{StaticResource MutedInkBrush}"
+               Margin="{StaticResource EditorSectionMargin}" />
+    <controls:EditorField Label="Date of birth"
+                          FieldKey="{x:Static vm:CustomerFields.DateOfBirth}"
+                          Text="{Binding Draft.DateOfBirthDisplay, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          IsSensitive="True"
+                          IsMasked="{Binding Draft.IsDateOfBirthMasked}"
+                          CopyCommand="{Binding CopyFieldCommand}"
+                          PasteCommand="{Binding PasteFieldCommand}"
+                          ToggleSensitiveCommand="{Binding ToggleSensitiveCommand}" />
+    <controls:EditorField Label="SSN"
+                          FieldKey="{x:Static vm:CustomerFields.Ssn}"
+                          Text="{Binding Draft.SsnDisplay, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          IsSensitive="True"
+                          IsMasked="{Binding Draft.IsSsnMasked}"
+                          MaxLength="100"
+                          CopyCommand="{Binding CopyFieldCommand}"
+                          PasteCommand="{Binding PasteFieldCommand}"
+                          ToggleSensitiveCommand="{Binding ToggleSensitiveCommand}" />
+    <controls:EditorField Label="Medicare ID"
+                          FieldKey="{x:Static vm:CustomerFields.MedicareId}"
+                          Text="{Binding Draft.MedicareIdDisplay, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          IsSensitive="True"
+                          IsMasked="{Binding Draft.IsMedicareIdMasked}"
+                          MaxLength="100"
+                          CopyCommand="{Binding CopyFieldCommand}"
+                          PasteCommand="{Binding PasteFieldCommand}"
+                          ToggleSensitiveCommand="{Binding ToggleSensitiveCommand}" />
+  </StackPanel>
+</UserControl>
