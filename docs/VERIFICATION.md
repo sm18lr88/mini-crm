@@ -9,6 +9,8 @@ This page records portable evidence from local verification of Mini CRM v0.1.0-r
 - Independent acceptance checks covered storage, the editor, view models, and CLI boundaries. The editor acceptance suite completed 12 checks, including `en-US`, `th-TH`, pasted whitespace, and ISO timestamps with seconds.
 - The published-package headless smoke path passed without showing a window. WPF binding and closing checks exercised editing, paste and copy routing, masking and reveal, saving, compact and topmost properties, validation, empty state, and recovery state.
 - Source review was approved after a Thai-calendar parsing defect was fixed. Gregorian ISO editor input now uses an invariant Gregorian parser.
+- Release packaging self-tests rejected missing entry points, private data and backup files, differing merge collisions, tampered archives, traversal, and Windows filename aliases. Pure filesystem tests used synthetic files, not runnable application substitutes.
+- A real separate GUI/CLI publish was merged and verified against its per-file manifest. The extracted GUI passed `--render-smoke` with bundle-local runtime libraries, and CLI help passed without creating a data store.
 
 ## Release Process
 
