@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="src/CallLedger.Core/CallLedger.Core.csproj" />
+  <Project Path="src/CallLedger.Vault/CallLedger.Vault.csproj" />
+  <Project Path="src/CallLedger.Desktop/CallLedger.Desktop.csproj" />
+  <Project Path="src/CallLedger.Cli/CallLedger.Cli.csproj" />
+  <Project Path="tests/CallLedger.Tests/CallLedger.Tests.csproj" />
+  <Project Path="tests/CallLedger.Cli.Tests/CallLedger.Cli.Tests.csproj" />
+</Solution>
