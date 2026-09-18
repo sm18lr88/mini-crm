@@ -3,6 +3,8 @@
 **/obj/
 artifacts/
 dist/
+staging/
+release/
 
 # Local application data
 Data/
