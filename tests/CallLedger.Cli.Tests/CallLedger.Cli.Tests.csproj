@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CallLedger.Cli\CallLedger.Cli.csproj" />
+    <ProjectReference Include="..\..\src\CallLedger.Core\CallLedger.Core.csproj" />
+    <ProjectReference Include="..\..\src\CallLedger.Vault\CallLedger.Vault.csproj" />
+  </ItemGroup>
+</Project>
