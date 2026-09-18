@@ -1,6 +1,6 @@
-# Mini CRM v0.1.0-rc.1
+# Mini CRM Windows Prerelease
 
-Mini CRM v0.1.0-rc.1 is a prerelease, offline Windows call tracker for managing customers, calls, and follow-ups.
+Mini CRM is a prerelease, offline Windows call tracker for managing customers, calls, and follow-ups. The release title identifies the application version.
 
 ## Install
 
@@ -37,5 +37,6 @@ Local validation passed 19 Core tests, 12 CLI tests, and no-window WPF checks. T
 Compare the downloaded ZIP with the accompanying `SHA256SUMS.txt` in PowerShell:
 
 ```powershell
-Get-FileHash .\mini-crm-v0.1.0-rc.1-win-x64.zip -Algorithm SHA256
+$version = 'v0.1.0-rc.2' # Use the version shown in this release's title.
+Get-FileHash ".\mini-crm-$version-win-x64.zip" -Algorithm SHA256
 ```

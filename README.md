@@ -48,7 +48,8 @@ This is a prerelease that bundles .NET 11 RC1. Support ends October 13, 2026. Up
 The build is unsigned. Compare its SHA-256 with the release's `SHA256SUMS.txt` before running it:
 
 ```powershell
-Get-FileHash .\mini-crm-v0.1.0-rc.1-win-x64.zip -Algorithm SHA256
+$version = 'v0.1.0-rc.2' # Match the release you downloaded.
+Get-FileHash ".\mini-crm-$version-win-x64.zip" -Algorithm SHA256
 ```
 
 ## Developers
