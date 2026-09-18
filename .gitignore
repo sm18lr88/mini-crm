@@ -1,0 +1,44 @@
+# Build output
+**/bin/
+**/obj/
+artifacts/
+dist/
+
+# Local application data
+Data/
+*.vault
+*.clb
+call-ledger.previous
+call-ledger.lock
+
+# Visual Studio and user-specific files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.csproj.user
+*.rsuser
+
+# Test results
+TestResults/
+**/TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Local agent state and machine-specific verification evidence
+.omo/
+.solidkg/
+.opencode/
+.skillos/
+/VERIFICATION.md
+
+# Credentials and private keys must never enter the public repository
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.pem
+*.key
