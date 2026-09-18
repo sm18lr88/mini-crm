@@ -1,0 +1,254 @@
+name: Windows prerelease
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing prerelease tag to build and publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mini-crm-prerelease
+  cancel-in-progress: false
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 'true'
+  DOTNET_NOLOGO: '1'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+  MSBUILDDISABLENODEREUSE: '1'
+  GIT_MASTER: '1'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    outputs:
+      tag: ${{ steps.identity.outputs.tag }}
+      commit: ${{ steps.identity.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: identity
+        name: Validate and resolve immutable tag
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pattern = '^v[0-9]+\.[0-9]+\.[0-9]+-(rc|beta|alpha)\.[0-9]+$'
+          $tag = if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') { $env:REQUESTED_TAG } else { $env:GITHUB_REF_NAME }
+          if ([string]::IsNullOrWhiteSpace($tag) -or $tag -notmatch $pattern) { throw "Tag '$tag' must match $pattern" }
+          & git show-ref --verify --quiet ("refs/tags/" + $tag)
+          if ($LASTEXITCODE -ne 0) { throw "Validated tag '$tag' does not exist in this checkout." }
+          $commit = (& git rev-parse ($tag + '^{commit}')).Trim()
+          if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-f]{40}$') { throw "Tag '$tag' does not resolve to a commit." }
+          & git checkout --detach $commit
+          if ($LASTEXITCODE -ne 0) { throw "Could not detach at '$commit'." }
+          $head = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $head -ne $commit) { throw 'Checkout did not resolve to the validated tag commit.' }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "commit=$head" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          global-json-file: global.json
+
+      - name: Assert pinned SDK
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $expected = '11.0.100-rc.1.26425.128'
+          $actual = (& dotnet --version).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $expected) { throw "Expected SDK $expected, found $actual." }
+
+      - name: Build release solution
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & dotnet build CallLedger.slnx -c Release --disable-build-servers -p:UseSharedCompilation=false -nodeReuse:false
+          if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
+
+      - name: Run compiled core and CLI tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $core = @(& dotnet tests/CallLedger.Tests/bin/Release/net11.0/CallLedger.Tests.dll 2>&1)
+          $coreExitCode = $LASTEXITCODE
+          $core | ForEach-Object { $_ }
+          if ($coreExitCode -ne 0 -or ($core -join "`n") -notmatch '19/19 tests passed\.') { throw 'Core test executable did not report 19/19 tests passed.' }
+          $cli = @(& dotnet tests/CallLedger.Cli.Tests/bin/Release/net11.0/CallLedger.Cli.Tests.dll 2>&1)
+          $cliExitCode = $LASTEXITCODE
+          $cli | ForEach-Object { $_ }
+          if ($cliExitCode -ne 0 -or ($cli -join "`n") -notmatch '12/12 tests passed\.') { throw 'CLI test executable did not report 12/12 tests passed.' }
+
+      - name: Publish separate self-contained folders
+        env:
+          RELEASE_TAG: ${{ steps.identity.outputs.tag }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = $env:RELEASE_TAG.Substring(1)
+          & dotnet publish src/CallLedger.Desktop -c Release -r win-x64 --self-contained true -o staging/desktop --disable-build-servers -p:Version=$version -p:PublishTrimmed=false -p:PublishSingleFile=false -p:UseSharedCompilation=false -nodeReuse:false
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop publish failed.' }
+          & dotnet publish src/CallLedger.Cli -c Release -r win-x64 --self-contained true -o staging/cli --disable-build-servers -p:Version=$version -p:PublishTrimmed=false -p:PublishSingleFile=false -p:UseSharedCompilation=false -nodeReuse:false
+          if ($LASTEXITCODE -ne 0) { throw 'CLI publish failed.' }
+          $cliWindowsBase = Join-Path (Get-Location) 'staging/cli/WindowsBase.dll'
+          if (-not [System.IO.File]::Exists($cliWindowsBase)) { throw 'CLI publish did not contain WindowsBase.dll.' }
+          # WPF's WindowsBase is authoritative; the CLI duplicate is byte-different but not needed by the merged runtime.
+          [System.IO.File]::Delete($cliWindowsBase)
+
+      - name: Run packaging filesystem self-test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./build/Test-Packaging.ps1
+
+      - name: Package and validate staged release
+        env:
+          RELEASE_TAG: ${{ steps.identity.outputs.tag }}
+          SOURCE_COMMIT_SHA: ${{ steps.identity.outputs.commit }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./build/Package-Release.ps1 -DesktopPublish staging/desktop -CliPublish staging/cli -Version $env:RELEASE_TAG -SourceCommitSha $env:SOURCE_COMMIT_SHA -SdkVersion '11.0.100-rc.1.26425.128' -OutputDirectory release
+          & ./build/Verify-Release.ps1 -ArchivePath (Join-Path release ("mini-crm-" + $env:RELEASE_TAG + '-win-x64.zip')) -ChecksumPath release/SHA256SUMS.txt -ManifestPath release/release-manifest.json -ExtractTo staging/verified
+
+      - name: Smoke test staged desktop and CLI commands
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $releaseRoot = Join-Path (Get-Location) 'staging/verified/CallLedger'
+          $desktop = Join-Path $releaseRoot 'CallLedger.exe'
+          $cli = Join-Path $releaseRoot 'CallLedger.Cli.exe'
+          $render = @(& $desktop --render-smoke (Join-Path (Get-Location) 'staging/ui-proof') 2>&1)
+          $renderExitCode = $LASTEXITCODE
+          $render | ForEach-Object { $_ }
+          if ($renderExitCode -ne 0 -or ($render -join "`n") -notmatch 'PASS --render-smoke') { throw 'Desktop render smoke test failed.' }
+          $help = @(& $cli help 2>&1)
+          $helpExitCode = $LASTEXITCODE
+          $help | ForEach-Object { $_ }
+          if ($helpExitCode -ne 0) { throw 'CLI help failed.' }
+          $schema = @(& $cli schema 2>&1)
+          $schemaExitCode = $LASTEXITCODE
+          $schema | ForEach-Object { $_ }
+          if ($schemaExitCode -ne 0) { throw 'CLI schema failed.' }
+          if (Test-Path (Join-Path $releaseRoot 'Data')) { throw 'Smoke, help, or schema unexpectedly created Data.' }
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mini-crm-release
+          path: release
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: refs/tags/${{ needs.build.outputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Revalidate checked-out tag
+        env:
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          SOURCE_COMMIT_SHA: ${{ needs.build.outputs.commit }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+-(rc|beta|alpha)\.[0-9]+$' -or $env:SOURCE_COMMIT_SHA -notmatch '^[0-9a-f]{40}$') { throw 'Build output identity is invalid.' }
+          $tagCommit = (& git rev-parse ($env:RELEASE_TAG + '^{commit}')).Trim()
+          $head = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $tagCommit -ne $env:SOURCE_COMMIT_SHA -or $head -ne $env:SOURCE_COMMIT_SHA) { throw 'Release checkout is not the validated source commit.' }
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: mini-crm-release
+          path: incoming
+
+      - name: Verify downloaded artifact
+        env:
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./build/Verify-Release.ps1 -ArchivePath (Join-Path incoming ("mini-crm-" + $env:RELEASE_TAG + '-win-x64.zip')) -ChecksumPath incoming/SHA256SUMS.txt -ManifestPath incoming/release-manifest.json
+
+      - name: Refuse existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $existing = & gh release view $env:RELEASE_TAG --json tagName,isDraft,assets 2>$null
+          if ($LASTEXITCODE -eq 0) { throw "Release '$env:RELEASE_TAG' already exists. Refusing to replace its assets." }
+          exit 0
+
+      - name: Create draft prerelease and upload artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          SOURCE_COMMIT_SHA: ${{ needs.build.outputs.commit }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = Join-Path incoming ("mini-crm-" + $env:RELEASE_TAG + '-win-x64.zip')
+          $manifest = [System.IO.File]::ReadAllText((Join-Path (Get-Location) 'incoming/release-manifest.json')) | ConvertFrom-Json
+          if ($manifest.version -ne $env:RELEASE_TAG -or $manifest.sourceCommitSha -ne $env:SOURCE_COMMIT_SHA) { throw 'Verified manifest does not match the build identity.' }
+          & gh release create $env:RELEASE_TAG $archive incoming/SHA256SUMS.txt incoming/release-manifest.json --draft --prerelease --verify-tag --target $env:SOURCE_COMMIT_SHA --notes-file RELEASE_NOTES.md --title ("Mini CRM " + $env:RELEASE_TAG)
+          if ($LASTEXITCODE -ne 0) { throw 'Draft prerelease creation failed.' }
+
+      - name: Check draft assets and verify downloaded ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          SOURCE_COMMIT_SHA: ${{ needs.build.outputs.commit }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $releaseJson = & gh release view $env:RELEASE_TAG --json databaseId,isDraft,isPrerelease,targetCommitish,assets
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read the created draft release.' }
+          $release = $releaseJson | ConvertFrom-Json
+          if (-not $release.isDraft -or -not $release.isPrerelease -or $release.targetCommitish -ne $env:SOURCE_COMMIT_SHA) { throw 'Created release is not the expected draft prerelease.' }
+          $expected = @{}
+          foreach ($path in @((Join-Path incoming ("mini-crm-" + $env:RELEASE_TAG + '-win-x64.zip')), 'incoming/SHA256SUMS.txt', 'incoming/release-manifest.json')) { $expected[[System.IO.Path]::GetFileName($path)] = ([System.IO.FileInfo]$path).Length }
+          $actual = @{}
+          foreach ($asset in $release.assets) { if ($actual.ContainsKey($asset.name)) { throw "Duplicate draft asset '$($asset.name)'." }; $actual[$asset.name] = [int64]$asset.size }
+          if ($actual.Count -ne $expected.Count) { throw 'Draft asset count is unexpected.' }
+          foreach ($name in $expected.Keys) { if (-not $actual.ContainsKey($name) -or $actual[$name] -ne $expected[$name]) { throw "Draft asset '$name' is missing or has the wrong length." } }
+          $releaseApiJson = & gh api ("repos/" + $env:GITHUB_REPOSITORY + "/releases/" + $release.databaseId)
+          if ($LASTEXITCODE -ne 0) { throw 'Could not verify draft asset upload states.' }
+          $releaseApi = $releaseApiJson | ConvertFrom-Json
+          foreach ($asset in $releaseApi.assets) { if ($asset.state -ne 'uploaded') { throw "Draft asset '$($asset.name)' is not uploaded." } }
+          $download = Join-Path (Get-Location) 'release-download'
+          [System.IO.Directory]::CreateDirectory($download) | Out-Null
+          & gh release download $env:RELEASE_TAG --pattern ("mini-crm-" + $env:RELEASE_TAG + '-win-x64.zip') --dir $download
+          if ($LASTEXITCODE -ne 0) { throw 'Could not download draft ZIP for verification.' }
+          & ./build/Verify-Release.ps1 -ArchivePath (Join-Path $download ("mini-crm-" + $env:RELEASE_TAG + '-win-x64.zip')) -ChecksumPath incoming/SHA256SUMS.txt -ManifestPath incoming/release-manifest.json
+
+      - name: Publish verified draft prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & gh release edit $env:RELEASE_TAG --draft=false --prerelease
+          if ($LASTEXITCODE -ne 0) { throw 'Could not publish verified draft prerelease.' }
