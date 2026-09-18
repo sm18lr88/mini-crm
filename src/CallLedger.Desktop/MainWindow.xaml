@@ -1,0 +1,487 @@
+<Window x:Class="CallLedger.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:CallLedger.Desktop.Controls"
+        Title="Call Ledger"
+        Width="1200"
+        Height="800"
+        MinWidth="960"
+        MinHeight="620"
+        Loaded="OnLoaded"
+        Closing="OnClosing"
+        Closed="OnClosed"
+        PreviewKeyDown="OnPreviewKeyDown">
+  <Window.Resources>
+    <Style x:Key="LedgerCellText" TargetType="{x:Type TextBlock}">
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+    </Style>
+    <Style x:Key="DueStatusPill" TargetType="{x:Type Border}" BasedOn="{StaticResource StatusPill}">
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding HasDueCalls}" Value="True">
+          <Setter Property="Background" Value="{StaticResource WarningSoftBrush}" />
+          <Setter Property="BorderBrush" Value="{StaticResource WarningBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+  </Window.Resources>
+
+  <Grid x:Name="ShellRoot" Background="{StaticResource CanvasBrush}">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <Border Grid.Row="0"
+            Background="{StaticResource SurfaceBrush}"
+            BorderBrush="{StaticResource RuleBrush}"
+            BorderThickness="{StaticResource RuleBottomThickness}"
+            Padding="{StaticResource RegionPadding}"
+            Visibility="{Binding CompactMode, Converter={StaticResource InverseBoolToVisibility}}">
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <DockPanel Grid.Row="0" LastChildFill="True">
+          <Border DockPanel.Dock="Right"
+                  Style="{StaticResource DueStatusPill}"
+                  Margin="12,0,0,0"
+                  VerticalAlignment="Top"
+                  AutomationProperties.Name="Call timing summary">
+            <StackPanel>
+              <TextBlock Text="{Binding DueStatus}"
+                         FontSize="{StaticResource UiTextSize}"
+                         FontWeight="SemiBold" />
+              <TextBlock Text="{Binding NextDueText}"
+                         FontSize="{StaticResource CaptionTextSize}"
+                         Foreground="{StaticResource MutedInkBrush}"
+                         Margin="{StaticResource MicroTopGap}" />
+            </StackPanel>
+          </Border>
+          <StackPanel>
+            <TextBlock Text="Call Ledger"
+                       FontSize="{StaticResource TitleTextSize}"
+                       FontWeight="SemiBold" />
+            <TextBlock Text="Local follow-up records"
+                       FontSize="{StaticResource CaptionTextSize}"
+                       Foreground="{StaticResource MutedInkBrush}"
+                       Margin="{StaticResource MicroTopGap}" />
+          </StackPanel>
+        </DockPanel>
+
+        <WrapPanel Grid.Row="1" HorizontalAlignment="Right" Margin="{StaticResource SectionTopGap}">
+          <CheckBox Content="Show sensitive fields by default"
+                    IsChecked="{Binding ShowSensitiveByDefault, Mode=OneWay}"
+                    IsEnabled="{Binding IsNotBusy}"
+                    ToolTip="Persist whether sensitive fields are initially revealed"
+                    AutomationProperties.Name="Show sensitive fields by default"
+                    Click="OnShowSensitiveByDefaultClick"
+                    Margin="{StaticResource InlineGap}"
+                    VerticalAlignment="Center" />
+          <ToggleButton Style="{StaticResource FilterButton}"
+                        Content="Always on top"
+                        IsChecked="{Binding AlwaysOnTop, Mode=OneWay}"
+                        ToolTip="Keep Call Ledger above other windows"
+                        AutomationProperties.Name="Always on top"
+                        Command="{Binding ToggleAlwaysOnTopCommand}"
+                        Margin="{StaticResource InlineGap}" />
+          <Button Style="{StaticResource QuietButton}"
+                  Content="Export backup"
+                  ToolTip="Export an encrypted backup for this Windows account"
+                  Command="{Binding ExportBackupCommand}"
+                  Margin="{StaticResource InlineGap}" />
+          <Button Style="{StaticResource QuietButton}"
+                  Content="Restore backup"
+                  ToolTip="Restore an encrypted backup after confirmation"
+                  Command="{Binding RestoreBackupCommand}"
+                  Margin="{StaticResource InlineGap}" />
+          <Button Style="{StaticResource SecondaryButton}"
+                  Content="Compact"
+                  ToolTip="Switch to the compact call view"
+                  AutomationProperties.Name="Compact view"
+                  Command="{Binding ToggleCompactModeCommand}"
+                  Margin="{StaticResource InlineGap}" />
+          <Button Style="{StaticResource PrimaryButton}"
+                  Content="New"
+                  ToolTip="Create a new customer record (Ctrl+N)"
+                  AutomationProperties.Name="New record"
+                  Command="{Binding NewCommand}" />
+        </WrapPanel>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="0"
+            Background="{StaticResource SurfaceBrush}"
+            BorderBrush="{StaticResource RuleBrush}"
+            BorderThickness="{StaticResource RuleBottomThickness}"
+            Padding="{StaticResource CompactPadding}"
+            Visibility="{Binding CompactMode, Converter={StaticResource BoolToVisibility}}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Text="Call Ledger"
+                   FontSize="{StaticResource SectionTextSize}"
+                   FontWeight="SemiBold"
+                   VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis" />
+        <ToggleButton Grid.Column="1"
+                      Style="{StaticResource FilterButton}"
+                      Content="Pin"
+                      IsChecked="{Binding AlwaysOnTop, Mode=OneWay}"
+                      ToolTip="Keep Call Ledger above other windows"
+                      AutomationProperties.Name="Always on top"
+                      Command="{Binding ToggleAlwaysOnTopCommand}"
+                      Margin="{StaticResource InlineGap}" />
+        <Button Grid.Column="2"
+                Style="{StaticResource SecondaryButton}"
+                Content="Expand"
+                ToolTip="Show the customer table and search"
+                AutomationProperties.Name="Expand view"
+                Command="{Binding ToggleCompactModeCommand}"
+                Margin="{StaticResource InlineGap}" />
+        <Button Grid.Column="3"
+                Style="{StaticResource PrimaryButton}"
+                Content="New"
+                ToolTip="Create a new customer record (Ctrl+N)"
+                AutomationProperties.Name="New record"
+                Command="{Binding NewCommand}" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1"
+          MinHeight="0"
+          Visibility="{Binding CompactMode, Converter={StaticResource InverseBoolToVisibility}}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="1.2*" MinWidth="360" />
+        <ColumnDefinition Width="1*" MinWidth="440" />
+      </Grid.ColumnDefinitions>
+
+      <Border Grid.Column="0"
+              Background="{StaticResource SurfaceBrush}"
+              BorderBrush="{StaticResource RuleBrush}"
+              BorderThickness="{StaticResource RuleRightThickness}"
+              Padding="{StaticResource RegionPadding}">
+        <Grid MinHeight="0">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+
+          <StackPanel Grid.Row="0">
+            <Label Content="Search records"
+                   Target="{Binding ElementName=SearchBox}"
+                   FontSize="{StaticResource UiTextSize}"
+                   FontWeight="SemiBold"
+                   Foreground="{StaticResource MutedInkBrush}"
+                   Padding="0" />
+            <TextBox x:Name="SearchBox"
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="Search name, phone, or identifier (Ctrl+F)"
+                     AutomationProperties.Name="Search customer records" />
+          </StackPanel>
+
+          <WrapPanel Grid.Row="1" Margin="{StaticResource SectionTopGap}">
+            <ToggleButton Style="{StaticResource FilterButton}"
+                          Content="All"
+                          IsChecked="{Binding IsAllFilter, Mode=OneWay}"
+                          Command="{Binding SetFilterCommand}"
+                          CommandParameter="All"
+                          Margin="{StaticResource InlineGap}" />
+            <ToggleButton Style="{StaticResource FilterButton}"
+                          Content="Due"
+                          IsChecked="{Binding IsDueFilter, Mode=OneWay}"
+                          Command="{Binding SetFilterCommand}"
+                          CommandParameter="Due"
+                          Margin="{StaticResource InlineGap}" />
+            <ToggleButton Style="{StaticResource FilterButton}"
+                          Content="Upcoming"
+                          IsChecked="{Binding IsUpcomingFilter, Mode=OneWay}"
+                          Command="{Binding SetFilterCommand}"
+                          CommandParameter="Upcoming"
+                          Margin="{StaticResource InlineGap}" />
+            <ToggleButton Style="{StaticResource FilterButton}"
+                          Content="Unscheduled"
+                          IsChecked="{Binding IsUnscheduledFilter, Mode=OneWay}"
+                          Command="{Binding SetFilterCommand}"
+                          CommandParameter="Unscheduled" />
+          </WrapPanel>
+
+          <Grid Grid.Row="2" MinHeight="0" Margin="{StaticResource SectionTopGap}">
+            <DataGrid ItemsSource="{Binding Rows}"
+                      SelectedItem="{Binding SelectedRow, Mode=OneWay}"
+                      SelectionChanged="OnCustomerSelectionChanged"
+                      IsEnabled="{Binding IsNotBusy}"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      CanUserReorderColumns="False"
+                      CanUserResizeColumns="True"
+                      CanUserSortColumns="True"
+                      IsReadOnly="True"
+                      AutomationProperties.Name="Customer call list"
+                      Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Customer" Binding="{Binding Name}" SortMemberPath="Name" Width="180" ElementStyle="{StaticResource LedgerCellText}" />
+                <DataGridTextColumn Header="Phone" Binding="{Binding Phone}" SortMemberPath="Phone" Width="140" ElementStyle="{StaticResource LedgerCellText}" />
+                <DataGridTextColumn Header="When to call" Binding="{Binding FollowUp}" SortMemberPath="Customer.FollowUpAt" Width="150" ElementStyle="{StaticResource LedgerCellText}" />
+                <DataGridTextColumn Header="Reason" Binding="{Binding Reason}" SortMemberPath="Reason" Width="220" ElementStyle="{StaticResource LedgerCellText}" />
+                <DataGridTextColumn Header="DOB" Binding="{Binding DateOfBirth}" SortMemberPath="Customer.DateOfBirth" Width="120" ElementStyle="{StaticResource LedgerCellText}" />
+                <DataGridTextColumn Header="SSN" Binding="{Binding Ssn}" SortMemberPath="Ssn" Width="130" ElementStyle="{StaticResource LedgerCellText}" />
+                <DataGridTextColumn Header="Medicare" Binding="{Binding MedicareId}" SortMemberPath="MedicareId" Width="160" ElementStyle="{StaticResource LedgerCellText}" />
+                <DataGridTextColumn Header="Notes" Binding="{Binding Customer.Notes}" SortMemberPath="Customer.Notes" Width="280" ElementStyle="{StaticResource LedgerCellText}" />
+                <DataGridTextColumn Header="Last called" Binding="{Binding LastCalled}" SortMemberPath="Customer.LastCalledAt" Width="150" ElementStyle="{StaticResource LedgerCellText}" />
+                <DataGridTextColumn Header="Call" Binding="{Binding CallState}" SortMemberPath="CallState" Width="100" ElementStyle="{StaticResource LedgerCellText}" />
+              </DataGrid.Columns>
+            </DataGrid>
+
+            <StackPanel HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        MaxWidth="280"
+                        Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}">
+              <TextBlock Text="No records match this view."
+                         FontSize="{StaticResource SectionTextSize}"
+                         FontWeight="SemiBold"
+                         TextAlignment="Center" />
+              <TextBlock Text="Clear the search or create a new customer record."
+                         Foreground="{StaticResource MutedInkBrush}"
+                         TextAlignment="Center"
+                         Margin="{StaticResource SectionTopGap}" />
+              <Button Style="{StaticResource PrimaryButton}"
+                      Content="New record"
+                      HorizontalAlignment="Center"
+                      Margin="{StaticResource SectionTopGap}"
+                      Command="{Binding NewCommand}" />
+            </StackPanel>
+          </Grid>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="1"
+              Background="{StaticResource SurfaceElevatedBrush}"
+              Padding="{StaticResource RegionPadding}">
+        <Grid MinHeight="0">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+
+          <StackPanel Grid.Row="0">
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Right"
+                         Text="Unsaved changes"
+                         Foreground="{StaticResource WarningBrush}"
+                         FontSize="{StaticResource CaptionTextSize}"
+                         FontWeight="SemiBold"
+                         Visibility="{Binding HasUnsavedChanges, Converter={StaticResource BoolToVisibility}}" />
+              <StackPanel>
+                <TextBlock Text="{Binding SelectedCustomerName}"
+                           FontSize="{StaticResource SectionTextSize}"
+                           FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Draft.LastCalledDisplay, StringFormat=Last called: {0}}"
+                           FontSize="{StaticResource CaptionTextSize}"
+                           Foreground="{StaticResource MutedInkBrush}"
+                           Margin="{StaticResource MicroTopGap}" />
+              </StackPanel>
+            </DockPanel>
+            <Border Background="{StaticResource DangerSoftBrush}"
+                    BorderBrush="{StaticResource DangerBrush}"
+                    BorderThickness="{StaticResource RuleThickness}"
+                    CornerRadius="{StaticResource RadiusSmall}"
+                    Padding="{StaticResource CompactPadding}"
+                    Margin="{StaticResource SectionTopGap}"
+                    Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
+              <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource DangerBrush}" />
+            </Border>
+          </StackPanel>
+
+          <Grid Grid.Row="1" MinHeight="0" Margin="{StaticResource EditorTopGap}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Visibility="{Binding IsEditorActive, Converter={StaticResource BoolToVisibility}}">
+              <controls:CustomerEditor />
+            </ScrollViewer>
+            <StackPanel HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        MaxWidth="300"
+                        Visibility="{Binding IsEditorActive, Converter={StaticResource InverseBoolToVisibility}}">
+              <TextBlock Text="Choose a customer to view the ledger."
+                         FontSize="{StaticResource SectionTextSize}"
+                         FontWeight="SemiBold"
+                         TextAlignment="Center" />
+              <TextBlock Text="Or create a new record to begin a call follow-up."
+                         Foreground="{StaticResource MutedInkBrush}"
+                         TextAlignment="Center"
+                         Margin="{StaticResource SectionTopGap}" />
+              <Button Style="{StaticResource PrimaryButton}"
+                      Content="New record"
+                      HorizontalAlignment="Center"
+                      Margin="{StaticResource SectionTopGap}"
+                      Command="{Binding NewCommand}" />
+            </StackPanel>
+          </Grid>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <Grid Grid.Row="1"
+          MinHeight="0"
+          Visibility="{Binding CompactMode, Converter={StaticResource BoolToVisibility}}">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <Border Grid.Row="0"
+              Background="{StaticResource SurfaceMutedBrush}"
+              BorderBrush="{StaticResource RuleBrush}"
+              BorderThickness="{StaticResource RuleBottomThickness}"
+              Padding="{StaticResource CompactPadding}">
+        <StackPanel>
+          <Label Content="Customer"
+                 Target="{Binding ElementName=CompactCustomerPicker}"
+                 FontSize="{StaticResource UiTextSize}"
+                 FontWeight="SemiBold"
+                 Foreground="{StaticResource MutedInkBrush}"
+                 Padding="0" />
+          <ComboBox x:Name="CompactCustomerPicker"
+                    ItemsSource="{Binding Rows}"
+                    SelectedItem="{Binding SelectedRow, Mode=OneWay}"
+                    SelectionChanged="OnCustomerSelectionChanged"
+                    IsEnabled="{Binding IsNotBusy}"
+                    ToolTip="Choose the customer for this call"
+                    AutomationProperties.Name="Choose a customer for this call">
+             <ComboBox.ItemTemplate>
+               <DataTemplate>
+                 <TextBlock Text="{Binding Name}" />
+               </DataTemplate>
+             </ComboBox.ItemTemplate>
+           </ComboBox>
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Row="1"
+              Background="{StaticResource DangerSoftBrush}"
+              BorderBrush="{StaticResource DangerBrush}"
+              BorderThickness="{StaticResource RuleThickness}"
+              CornerRadius="{StaticResource RadiusSmall}"
+              Padding="{StaticResource CompactPadding}"
+              Margin="{StaticResource CompactPadding}"
+              Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
+        <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource DangerBrush}" />
+      </Border>
+
+      <Grid Grid.Row="2" MinHeight="0" Margin="{StaticResource CompactPadding}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Visibility="{Binding IsEditorActive, Converter={StaticResource BoolToVisibility}}">
+          <controls:CustomerEditor />
+        </ScrollViewer>
+        <StackPanel HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    MaxWidth="280"
+                    Visibility="{Binding IsEditorActive, Converter={StaticResource InverseBoolToVisibility}}">
+          <TextBlock Text="No customer selected."
+                     FontSize="{StaticResource SectionTextSize}"
+                     FontWeight="SemiBold"
+                     TextAlignment="Center" />
+          <TextBlock Text="Create a record to begin a follow-up."
+                     Foreground="{StaticResource MutedInkBrush}"
+                     TextAlignment="Center"
+                     Margin="{StaticResource SectionTopGap}" />
+          <Button Style="{StaticResource PrimaryButton}"
+                  Content="New record"
+                  HorizontalAlignment="Center"
+                  Margin="{StaticResource SectionTopGap}"
+                  Command="{Binding NewCommand}" />
+        </StackPanel>
+      </Grid>
+    </Grid>
+
+    <Grid Grid.Row="1"
+          Background="{StaticResource CanvasBrush}"
+          Panel.ZIndex="1"
+          Visibility="{Binding IsLoaded, Converter={StaticResource InverseBoolToVisibility}}">
+      <Border MaxWidth="440"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Background="{StaticResource SurfaceElevatedBrush}"
+              BorderBrush="{StaticResource DangerBrush}"
+              BorderThickness="{StaticResource RuleThickness}"
+              CornerRadius="{StaticResource RadiusMedium}"
+              Padding="{StaticResource RegionPadding}">
+        <StackPanel>
+          <TextBlock Text="Call Ledger needs recovery"
+                     FontSize="{StaticResource SectionTextSize}"
+                     FontWeight="SemiBold" />
+          <TextBlock Text="{Binding ErrorMessage}"
+                     Foreground="{StaticResource DangerBrush}"
+                     Margin="{StaticResource SectionTopGap}" />
+          <TextBlock Text="Restore an encrypted backup made under this same Windows profile. If the app cannot open its folder, move it to a writable local folder before trying again."
+                     Foreground="{StaticResource MutedInkBrush}"
+                     Margin="{StaticResource SectionTopGap}" />
+          <Button Style="{StaticResource PrimaryButton}"
+                  Content="Restore backup"
+                  ToolTip="Restore an encrypted backup after confirmation"
+                  HorizontalAlignment="Left"
+                  Margin="{StaticResource SectionTopGap}"
+                  Command="{Binding RestoreBackupCommand}" />
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <Border Grid.Row="2"
+            Background="{StaticResource SurfaceBrush}"
+            BorderBrush="{StaticResource RuleBrush}"
+            BorderThickness="{StaticResource RuleTopThickness}"
+            Padding="{StaticResource CompactPadding}">
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <DockPanel Grid.Row="0" LastChildFill="True">
+          <TextBlock DockPanel.Dock="Right"
+                     Text="Working..."
+                     Foreground="{StaticResource FocusBrush}"
+                     FontSize="{StaticResource CaptionTextSize}"
+                     FontWeight="SemiBold"
+                     Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+          <TextBlock Text="{Binding StatusMessage}"
+                     Foreground="{StaticResource MutedInkBrush}"
+                     FontSize="{StaticResource CaptionTextSize}"
+                     TextTrimming="CharacterEllipsis" />
+        </DockPanel>
+        <WrapPanel Grid.Row="1" Margin="{StaticResource SectionTopGap}">
+          <Button Style="{StaticResource PrimaryButton}"
+                  Content="Save"
+                  ToolTip="Save this customer"
+                  Command="{Binding SaveCommand}"
+                  Margin="{StaticResource InlineGap}" />
+          <Button Style="{StaticResource SecondaryButton}"
+                  Content="Mark called"
+                  ToolTip="Record the call now and clear the old follow-up"
+                  Command="{Binding MarkCalledCommand}"
+                  Margin="{StaticResource InlineGap}" />
+          <Button Style="{StaticResource SecondaryButton}"
+                  Content="Cancel"
+                  ToolTip="Discard edits to this draft"
+                  Command="{Binding CancelCommand}"
+                  Margin="{StaticResource InlineGap}" />
+          <Button Style="{StaticResource DestructiveButton}"
+                  Content="Delete"
+                  ToolTip="Delete the selected customer after confirmation"
+                  Command="{Binding DeleteCommand}" />
+        </WrapPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>
