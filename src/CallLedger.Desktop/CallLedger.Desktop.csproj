@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net11.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>CallLedger</AssemblyName>
+    <RootNamespace>CallLedger.Desktop</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CallLedger.Core\CallLedger.Core.csproj" />
+    <ProjectReference Include="..\CallLedger.Vault\CallLedger.Vault.csproj" />
+  </ItemGroup>
+</Project>
