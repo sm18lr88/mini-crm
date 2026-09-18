@@ -131,9 +131,11 @@ jobs:
           $releaseRoot = Join-Path (Get-Location) 'staging/verified/CallLedger'
           $desktop = Join-Path $releaseRoot 'CallLedger.exe'
           $cli = Join-Path $releaseRoot 'CallLedger.Cli.exe'
-          $render = @(& $desktop --render-smoke (Join-Path (Get-Location) 'staging/ui-proof') 2>&1)
+          # A real pipeline makes PowerShell wait for WinExe and capture its standard handles.
+          $render = @(& $desktop --render-smoke (Join-Path (Get-Location) 'staging/ui-proof') 2>&1 | Tee-Object -Variable renderLines)
           $renderExitCode = $LASTEXITCODE
           $render | ForEach-Object { $_ }
+          "Desktop render exit code: $renderExitCode; captured lines: $($render.Count)"
           if ($renderExitCode -ne 0 -or ($render -join "`n") -notmatch 'PASS --render-smoke') { throw 'Desktop render smoke test failed.' }
           $help = @(& $cli help 2>&1)
           $helpExitCode = $LASTEXITCODE
